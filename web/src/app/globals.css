@@ -13,3 +13,9 @@ select:-webkit-autofill:hover,
 select:-webkit-autofill:focus {
   -webkit-background-clip: text;
 }
+
+/* Font */
+@import url('static/font/PingFangSC.css');
+body {
+  font-family: 'PingFangSC-Medium-woff2', sans-serif;
+}

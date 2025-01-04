@@ -12,8 +12,9 @@ export default function Home() {
         <Logo></Logo>
         <Search></Search>
         <div className="flex gap-2 flex-wrap justify-center">
-          <PresetQuery query="Who said live long and prosper?"></PresetQuery>
-          <PresetQuery query="Why do we only see one side of the moon?"></PresetQuery>
+          {/* Some sample questions about Computer Network */}
+          <PresetQuery query="What is the difference between a hub and a switch?"></PresetQuery>
+          <PresetQuery query="Explain SSL/TLS handshake process"></PresetQuery>
         </div>
         <Footer></Footer>
       </div>

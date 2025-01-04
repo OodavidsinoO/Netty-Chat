@@ -15,8 +15,11 @@ const config: Config = {
       },
       colors: {
         blue: {
-          500: "#2F80ED",
+          500: "#7a88cc",
         },
+      },
+      fontFamily: {
+        sans: ["PingFangSC-Regular-woff2", "sans-serif"],
       },
     },
   },
