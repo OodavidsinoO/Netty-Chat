@@ -17,11 +17,13 @@ from loguru import logger
 # ======== Lepton AI Imports ========
 import leptonai
 from leptonai import Client
-from leptonai.kv import KV
 from leptonai.photon import Photon, StaticFiles
 from leptonai.photon.types import to_bool
 from leptonai.api.v0.workspace import WorkspaceInfoLocalRecord
 from leptonai.util import tool
+
+# ======== KV Imports ========
+import shelve
 
 # ======== Search Engine Functions ========
 from langchain_community.tools import DuckDuckGoSearchResults
@@ -34,21 +36,9 @@ from dotenv import load_dotenv
 load_dotenv(override = True) # Load the .env file
 logger.info(f"Loaded .env file successfully.")
 
-# Search engine related. You don't really need to change this.
-BING_SEARCH_V7_ENDPOINT = "https://api.bing.microsoft.com/v7.0/search"
-BING_MKT = "en-US"
-GOOGLE_SEARCH_ENDPOINT = "https://customsearch.googleapis.com/customsearch/v1"
-SERPER_SEARCH_ENDPOINT = "https://google.serper.dev/search"
-SEARCHAPI_SEARCH_ENDPOINT = "https://www.searchapi.io/api/v1/search"
-
 # Specify the number of references from the search engine you want to use.
 # 8 is usually a good number.
 REFERENCE_COUNT = 8
-
-# Specify the default timeout for the search engine. If the search engine
-# does not respond within this time, we will return an error.
-DEFAULT_SEARCH_ENGINE_TIMEOUT = 5
-
 
 # If the user did not provide a query, we will use this default query.
 _default_query = "What is the ultimate answer to life, the universe, and everything?"
@@ -102,7 +92,7 @@ Here are the contexts of the question:
 Remember, based on the original question and related contexts, suggest three such further questions. Do NOT repeat the original question. Each related question should be no longer than 20 words. Here is the original question:
 """
 
-# ======== Search Engine Functions ========
+# ======== Search Engine (ARAG) Functions ========
 
 def search_with_duckduckgo(query: str):
     """
@@ -119,6 +109,13 @@ def search_with_duckduckgo(query: str):
             "snippet": result["snippet"]
         })
     return contexts
+
+def search_with_adaptiveRAG(query: str, remote_url: str):
+    """
+    Search with the adaptive RAG model. (TODO: Implement this function)
+    """
+    response = requests.post(remote_url, json = {"query": query})
+    return response.text
 
 # ======== Photon Class ========
 
@@ -145,19 +142,12 @@ class RAG(Photon):
         "resource_shape": "cpu.small",
         # You most likely don't need to change this.
         "env": {
-            # Choose the backend. Currently, we support BING and GOOGLE. For
-            # simplicity, in this demo, if you specify the backend as LEPTON,
-            # we will use the hosted serverless version of lepton search api
-            # at https://search-api.lepton.run/ to do the search and RAG, which
-            # runs the same code (slightly modified and might contain improvements)
-            # as this demo.
+            # RAG Backend: LEPTON or DUCKDUCKGO
             "BACKEND": "DUCKDUCKGO",
             # Specify the LLM model you are going to use.
             "LLM_MODEL": "mixtral-8x7b",
-            # For all the search queries and results, we will use the Lepton KV to
-            # store them so that we can retrieve them later. Specify the name of the
-            # KV here.
-            "KV_NAME": "netty-chat",
+            # KV name (SQLite database name) to store the search results.
+            "KV_NAME": "netty-chat.kv",
             # If set to true, will generate related questions. Otherwise, will not.
             "RELATED_QUESTIONS": "true",
             # On the lepton platform, allow web access when you are logged in.
@@ -227,9 +217,9 @@ class RAG(Photon):
         )
         # Create the KV to store the search results.
         logger.info("Creating KV. May take a while for the first time.")
-        self.kv = KV(
-            os.environ["KV_NAME"], create_if_not_exists=True, error_if_exists=False
-        )
+        self.kv = os.environ["KV_NAME"]
+        with shelve.open(self.kv) as db:
+            logger.info(f"KV created/loaded. Current number of keys: {len(db)}")
         # whether we should generate related questions.
         self.should_do_related_questions = to_bool(os.environ["RELATED_QUESTIONS"])
 
@@ -334,9 +324,9 @@ class RAG(Photon):
         ):
             all_yielded_results.append(result)
             yield result
-        # Second, upload to KV. Note that if uploading to KV fails, we will silently
-        # ignore it, because we don't want to affect the user experience.
-        _ = self.executor.submit(self.kv.put, search_uuid, "".join(all_yielded_results))
+        # Second, store the results in the SQLite database as KV.
+        with shelve.open(self.kv) as db:
+            db[search_uuid] = all_yielded_results
 
     @Photon.handler(method="POST", path="/query")
     def query_function(
@@ -361,23 +351,25 @@ class RAG(Photon):
         # Note that, if uuid exists, we don't check if the stored query is the same
         # as the current query, and simply return the stored result. This is to enable
         # the user to share a searched link to others and have others see the same result.
+
+        # ======== KV Storage ========
         if search_uuid:
             try:
-                result = self.kv.get(search_uuid)
-
-                def str_to_generator(result: str) -> Generator[str, None, None]:
-                    yield result
-
-                return StreamingResponse(str_to_generator(result))
-            except KeyError:
-                logger.info(f"Key {search_uuid} not found, will generate again.")
+                with shelve.open(self.kv) as db:
+                    if search_uuid in db:
+                        return StreamingResponse(
+                            content=db[search_uuid], media_type="text/html"
+                        )
+                    else:
+                        logger.info(f"search_uuid {search_uuid} not found in KV. Generating...")
             except Exception as e:
-                logger.error(
-                    f"KV error: {e}\n{traceback.format_exc()}, will generate again."
-                )
+                logger.error(f"encountered error: {e}\n{traceback.format_exc()}")
+                # If the KV fails, we will generate regardless, in favor of availability.
+
         else:
             raise HTTPException(status_code=400, detail="search_uuid must be provided.")
 
+        # ======== Search Engine Query ========
         if self.backend == "LEPTON":
             # delegate to the lepton search api.
             result = self.leptonsearch_client.query(

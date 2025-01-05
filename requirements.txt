@@ -4,6 +4,5 @@ httpx
 loguru
 leptonai
 openai
-key-value-db
 duckduckgo-search
 langchain-community

@@ -200,3 +200,4 @@ yarn-error.log*
 next-env.d.ts
 
 pnpm-lock.yaml
+netty-chat.kv.*
