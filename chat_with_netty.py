@@ -93,6 +93,7 @@ Here are the contexts of the question:
 Remember, based on the original question and related contexts, suggest three such further questions. Do NOT repeat the original question. Each related question should be no longer than 20 words. Here is the original question:
 """
 
+# ======== Search Engine Functions ========
 
 def search_with_bing(query: str, subscription_key: str):
     """
@@ -115,7 +116,6 @@ def search_with_bing(query: str, subscription_key: str):
         logger.error(f"Error encountered: {json_content}")
         return []
     return contexts
-
 
 def search_with_google(query: str, subscription_key: str, cx: str):
     """
@@ -140,7 +140,6 @@ def search_with_google(query: str, subscription_key: str, cx: str):
         logger.error(f"Error encountered: {json_content}")
         return []
     return contexts
-
 
 def search_with_serper(query: str, subscription_key: str):
     """
@@ -287,6 +286,8 @@ def search_with_searchapi(query: str, subscription_key: str):
     except KeyError:
         logger.error(f"Error encountered: {json_content}")
         return []
+
+# ======== Photon Class ========
 
 class RAG(Photon):
     """

@@ -14,7 +14,11 @@ export const Search: FC = () => {
         e.preventDefault();
         if (value) {
           setValue("");
-          router.push(getSearchUrl(encodeURIComponent(value), nanoid()));
+          // router.push(getSearchUrl(encodeURIComponent(value), nanoid()));
+          window.open(
+            "/ui" + getSearchUrl(encodeURIComponent(value), nanoid()),
+            "_blank",
+          );
         }
       }}
     >
