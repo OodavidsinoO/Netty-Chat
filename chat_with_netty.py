@@ -8,11 +8,13 @@ import requests
 import traceback
 from typing import Annotated, List, Generator, Optional
 
+# ======== FastAPI Imports ========
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 import httpx
 from loguru import logger
 
+# ======== Lepton AI Imports ========
 import leptonai
 from leptonai import Client
 from leptonai.kv import KV
@@ -21,9 +23,16 @@ from leptonai.photon.types import to_bool
 from leptonai.api.v0.workspace import WorkspaceInfoLocalRecord
 from leptonai.util import tool
 
+# ======== Search Engine Functions ========
+from langchain_community.tools import DuckDuckGoSearchResults
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+
 ################################################################################
 # Constant values for the RAG model.
 ################################################################################
+from dotenv import load_dotenv
+load_dotenv(override = True) # Load the .env file
+logger.info(f"Loaded .env file successfully.")
 
 # Search engine related. You don't really need to change this.
 BING_SEARCH_V7_ENDPOINT = "https://api.bing.microsoft.com/v7.0/search"
@@ -95,197 +104,21 @@ Remember, based on the original question and related contexts, suggest three suc
 
 # ======== Search Engine Functions ========
 
-def search_with_bing(query: str, subscription_key: str):
+def search_with_duckduckgo(query: str):
     """
-    Search with bing and return the contexts.
+    Search with duckduckgo and return the contexts.
     """
-    params = {"q": query, "mkt": BING_MKT}
-    response = requests.get(
-        BING_SEARCH_V7_ENDPOINT,
-        headers={"Ocp-Apim-Subscription-Key": subscription_key},
-        params=params,
-        timeout=DEFAULT_SEARCH_ENGINE_TIMEOUT,
-    )
-    if not response.ok:
-        logger.error(f"{response.status_code} {response.text}")
-        raise HTTPException(response.status_code, "Search engine error.")
-    json_content = response.json()
-    try:
-        contexts = json_content["webPages"]["value"][:REFERENCE_COUNT]
-    except KeyError:
-        logger.error(f"Error encountered: {json_content}")
-        return []
+    search = DuckDuckGoSearchResults(output_format = "list", num_results = REFERENCE_COUNT)
+    results = search.invoke(query)
+    # Convert the search results to the same format as bing/google
+    contexts = []
+    for result in results:
+        contexts.append({
+            "name": result["title"],
+            "url": result["link"],
+            "snippet": result["snippet"]
+        })
     return contexts
-
-def search_with_google(query: str, subscription_key: str, cx: str):
-    """
-    Search with google and return the contexts.
-    """
-    params = {
-        "key": subscription_key,
-        "cx": cx,
-        "q": query,
-        "num": REFERENCE_COUNT,
-    }
-    response = requests.get(
-        GOOGLE_SEARCH_ENDPOINT, params=params, timeout=DEFAULT_SEARCH_ENGINE_TIMEOUT
-    )
-    if not response.ok:
-        logger.error(f"{response.status_code} {response.text}")
-        raise HTTPException(response.status_code, "Search engine error.")
-    json_content = response.json()
-    try:
-        contexts = json_content["items"][:REFERENCE_COUNT]
-    except KeyError:
-        logger.error(f"Error encountered: {json_content}")
-        return []
-    return contexts
-
-def search_with_serper(query: str, subscription_key: str):
-    """
-    Search with serper and return the contexts.
-    """
-    payload = json.dumps({
-        "q": query,
-        "num": (
-            REFERENCE_COUNT
-            if REFERENCE_COUNT % 10 == 0
-            else (REFERENCE_COUNT // 10 + 1) * 10
-        ),
-    })
-    headers = {"X-API-KEY": subscription_key, "Content-Type": "application/json"}
-    logger.info(
-        f"{payload} {headers} {subscription_key} {query} {SERPER_SEARCH_ENDPOINT}"
-    )
-    response = requests.post(
-        SERPER_SEARCH_ENDPOINT,
-        headers=headers,
-        data=payload,
-        timeout=DEFAULT_SEARCH_ENGINE_TIMEOUT,
-    )
-    if not response.ok:
-        logger.error(f"{response.status_code} {response.text}")
-        raise HTTPException(response.status_code, "Search engine error.")
-    json_content = response.json()
-    try:
-        # convert to the same format as bing/google
-        contexts = []
-        if json_content.get("knowledgeGraph"):
-            url = json_content["knowledgeGraph"].get("descriptionUrl") or json_content["knowledgeGraph"].get("website")
-            snippet = json_content["knowledgeGraph"].get("description")
-            if url and snippet:
-                contexts.append({
-                    "name": json_content["knowledgeGraph"].get("title",""),
-                    "url": url,
-                    "snippet": snippet
-                })
-        if json_content.get("answerBox"):
-            url = json_content["answerBox"].get("url")
-            snippet = json_content["answerBox"].get("snippet") or json_content["answerBox"].get("answer")
-            if url and snippet:
-                contexts.append({
-                    "name": json_content["answerBox"].get("title",""),
-                    "url": url,
-                    "snippet": snippet
-                })
-        contexts += [
-            {"name": c["title"], "url": c["link"], "snippet": c.get("snippet","")}
-            for c in json_content["organic"]
-        ]
-        return contexts[:REFERENCE_COUNT]
-    except KeyError:
-        logger.error(f"Error encountered: {json_content}")
-        return []
-
-def search_with_searchapi(query: str, subscription_key: str):
-    """
-    Search with SearchApi.io and return the contexts.
-    """
-    payload = {
-        "q": query,
-        "engine": "google",
-        "num": (
-            REFERENCE_COUNT
-            if REFERENCE_COUNT % 10 == 0
-            else (REFERENCE_COUNT // 10 + 1) * 10
-        ),
-    }
-    headers = {"Authorization": f"Bearer {subscription_key}", "Content-Type": "application/json"}
-    logger.info(
-        f"{payload} {headers} {subscription_key} {query} {SEARCHAPI_SEARCH_ENDPOINT}"
-    )
-    response = requests.get(
-        SEARCHAPI_SEARCH_ENDPOINT,
-        headers=headers,
-        params=payload,
-        timeout=30,
-    )
-    if not response.ok:
-        logger.error(f"{response.status_code} {response.text}")
-        raise HTTPException(response.status_code, "Search engine error.")
-    json_content = response.json()
-    try:
-        # convert to the same format as bing/google
-        contexts = []
-
-        if json_content.get("answer_box"):
-            if json_content["answer_box"].get("organic_result"):
-                title = json_content["answer_box"].get("organic_result").get("title", "")
-                url = json_content["answer_box"].get("organic_result").get("link", "")
-            if json_content["answer_box"].get("type") == "population_graph":
-                title = json_content["answer_box"].get("place", "")
-                url = json_content["answer_box"].get("explore_more_link", "")
-
-            title = json_content["answer_box"].get("title", "")
-            url = json_content["answer_box"].get("link")
-            snippet =  json_content["answer_box"].get("answer") or json_content["answer_box"].get("snippet")
-
-            if url and snippet:
-                contexts.append({
-                    "name": title,
-                    "url": url,
-                    "snippet": snippet
-                })
-
-        if json_content.get("knowledge_graph"):
-            if json_content["knowledge_graph"].get("source"):
-                url = json_content["knowledge_graph"].get("source").get("link", "")
-
-            url = json_content["knowledge_graph"].get("website", "")
-            snippet = json_content["knowledge_graph"].get("description")
-
-            if url and snippet:
-                contexts.append({
-                    "name": json_content["knowledge_graph"].get("title", ""),
-                    "url": url,
-                    "snippet": snippet
-                })
-
-        contexts += [
-            {"name": c["title"], "url": c["link"], "snippet": c.get("snippet", "")}
-            for c in json_content["organic_results"]
-        ]
-        
-        if json_content.get("related_questions"):
-            for question in json_content["related_questions"]:
-                if question.get("source"):
-                    url = question.get("source").get("link", "")
-                else:
-                    url = ""  
-                    
-                snippet = question.get("answer", "")
-
-                if url and snippet:
-                    contexts.append({
-                        "name": question.get("question", ""),
-                        "url": url,
-                        "snippet": snippet
-                    })
-
-        return contexts[:REFERENCE_COUNT]
-    except KeyError:
-        logger.error(f"Error encountered: {json_content}")
-        return []
 
 # ======== Photon Class ========
 
@@ -318,15 +151,13 @@ class RAG(Photon):
             # at https://search-api.lepton.run/ to do the search and RAG, which
             # runs the same code (slightly modified and might contain improvements)
             # as this demo.
-            "BACKEND": "LEPTON",
-            # If you are using google, specify the search cx.
-            "GOOGLE_SEARCH_CX": "",
+            "BACKEND": "DUCKDUCKGO",
             # Specify the LLM model you are going to use.
             "LLM_MODEL": "mixtral-8x7b",
             # For all the search queries and results, we will use the Lepton KV to
             # store them so that we can retrieve them later. Specify the name of the
             # KV here.
-            "KV_NAME": "search-with-lepton",
+            "KV_NAME": "netty-chat",
             # If set to true, will generate related questions. Otherwise, will not.
             "RELATED_QUESTIONS": "true",
             # On the lepton platform, allow web access when you are logged in.
@@ -335,16 +166,6 @@ class RAG(Photon):
         # Secrets you need to have: search api subscription key, and lepton
         # workspace token to query lepton's llama models.
         "secret": [
-            # If you use BING, you need to specify the subscription key. Otherwise
-            # it is not needed.
-            "BING_SEARCH_V7_SUBSCRIPTION_KEY",
-            # If you use GOOGLE, you need to specify the search api key. Note that
-            # you should also specify the cx in the env.
-            "GOOGLE_SEARCH_API_KEY",
-            # If you use Serper, you need to specify the search api key.
-            "SERPER_SEARCH_API_KEY",
-            # If you use SearchApi, you need to specify the search api key.
-            "SEARCHAPI_API_KEY",
             # You need to specify the workspace token to query lepton's LLM models.
             "LEPTON_WORKSPACE_TOKEN",
         ],
@@ -384,6 +205,7 @@ class RAG(Photon):
         leptonai.api.v0.workspace.login()
         self.backend = os.environ["BACKEND"].upper()
         if self.backend == "LEPTON":
+            logger.info("Using Lepton search API.")
             self.leptonsearch_client = Client(
                 "https://search-api.lepton.run/",
                 token=os.environ.get("LEPTON_WORKSPACE_TOKEN")
@@ -391,33 +213,13 @@ class RAG(Photon):
                 stream=True,
                 timeout=httpx.Timeout(connect=10, read=120, write=120, pool=10),
             )
-        elif self.backend == "BING":
-            self.search_api_key = os.environ["BING_SEARCH_V7_SUBSCRIPTION_KEY"]
-            self.search_function = lambda query: search_with_bing(
+        elif self.backend == "DUCKDUCKGO":
+            logger.info("Using DuckDuckGo search API.")
+            self.search_function = lambda query: search_with_duckduckgo(
                 query,
-                self.search_api_key,
-            )
-        elif self.backend == "GOOGLE":
-            self.search_api_key = os.environ["GOOGLE_SEARCH_API_KEY"]
-            self.search_function = lambda query: search_with_google(
-                query,
-                self.search_api_key,
-                os.environ["GOOGLE_SEARCH_CX"],
-            )
-        elif self.backend == "SERPER":
-            self.search_api_key = os.environ["SERPER_SEARCH_API_KEY"]
-            self.search_function = lambda query: search_with_serper(
-                query,
-                self.search_api_key,
-            )
-        elif self.backend == "SEARCHAPI":
-            self.search_api_key = os.environ["SEARCHAPI_API_KEY"]
-            self.search_function = lambda query: search_with_searchapi(
-                query,
-                self.search_api_key,
             )
         else:
-            raise RuntimeError("Backend must be LEPTON, BING, GOOGLE, SERPER or SEARCHAPI.")
+            raise RuntimeError(f"Unknown backend. Please check the environment variable. self.backend: {self.backend}")
         self.model = os.environ["LLM_MODEL"]
         # An executor to carry out async tasks, such as uploading to KV.
         self.executor = concurrent.futures.ThreadPoolExecutor(
@@ -590,6 +392,8 @@ class RAG(Photon):
         # Basic attack protection: remove "[INST]" or "[/INST]" from the query
         query = re.sub(r"\[/?INST\]", "", query)
         contexts = self.search_function(query)
+        # DEBUG: print the contexts.
+        logger.debug(f"Contexts: {contexts}")
 
         system_prompt = _rag_query_text.format(
             context="\n\n".join(
