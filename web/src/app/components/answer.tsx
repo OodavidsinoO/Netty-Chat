@@ -99,8 +99,8 @@ export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
                 },
                 code({ node, inline, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || "");
-
-                  return !inline && match ? (
+                  const isMermaid = match?.[1] === "mermaid";
+                  return !inline && match && !isMermaid ? (
                     <SyntaxHighlighter
                       style={dracula}
                       PreTag="div"
@@ -119,6 +119,22 @@ export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
             >
               {markdown}
             </Markdown>
+            {/* Mermaid Script */}
+            <script
+              src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"
+              async
+            />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                mermaid.initialize({startOnLoad:false});
+                await mermaid.run({
+                  querySelector: '.language-mermaid',
+                  suppressErrors: true,
+                });
+              `,
+              }}
+            ></script>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
