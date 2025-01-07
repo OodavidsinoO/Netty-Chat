@@ -9,6 +9,10 @@ import { Source } from "@/app/interfaces/source";
 import { BookOpenText } from "lucide-react";
 import { FC } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { dracula } from "react-syntax-highlighter/dist/cjs/styles/prism";
 
 export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
   markdown,
@@ -25,6 +29,8 @@ export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
         markdown ? (
           <div className="prose prose-sm max-w-full">
             <Markdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeRaw]}
               components={{
                 a: ({ node: _, ...props }) => {
                   if (!props.href) return <></>;
@@ -89,6 +95,24 @@ export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
                         </PopoverContent>
                       </Popover>
                     </span>
+                  );
+                },
+                code({ node, inline, className, children, ...props }: any) {
+                  const match = /language-(\w+)/.exec(className || "");
+
+                  return !inline && match ? (
+                    <SyntaxHighlighter
+                      style={dracula}
+                      PreTag="div"
+                      language={match[1]}
+                      {...props}
+                    >
+                      {String(children).replace(/\n$/, "")}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
                   );
                 },
               }}
