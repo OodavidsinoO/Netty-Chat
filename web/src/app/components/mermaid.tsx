@@ -6,9 +6,6 @@ mermaid.initialize({
   theme: "dark",
   suppressErrorRendering: true,
   securityLevel: "loose",
-  themeCSS: `
-    
-    }`,
 });
 
 interface MermaidProps {
