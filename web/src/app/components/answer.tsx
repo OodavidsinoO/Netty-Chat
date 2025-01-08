@@ -13,6 +13,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import Mermaid from "./mermaid";
 
 export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
   markdown,
@@ -110,31 +111,15 @@ export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
                       {String(children).replace(/\n$/, "")}
                     </SyntaxHighlighter>
                   ) : (
-                    <code className={className} {...props}>
+                    <Mermaid className={className} {...props} chart={children}>
                       {children}
-                    </code>
+                    </Mermaid>
                   );
                 },
               }}
             >
               {markdown}
             </Markdown>
-            {/* Mermaid Script */}
-            <script
-              src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"
-              async
-            />
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `
-                mermaid.initialize({startOnLoad:false});
-                await mermaid.run({
-                  querySelector: '.language-mermaid',
-                  suppressErrors: true,
-                });
-              `,
-              }}
-            ></script>
           </div>
         ) : (
           <div className="flex flex-col gap-2">

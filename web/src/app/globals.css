@@ -16,6 +16,16 @@ select:-webkit-autofill:focus {
 
 /* Font */
 @import url('static/font/PingFangSC.css');
+
 body {
   font-family: 'PingFangSC-Medium-woff2', sans-serif;
+}
+
+/* Mermaid */
+.mermaid {
+  display: flex !important;
+  justify-content: center;
+  /* Center Diagram */
+  margin-left: auto;
+  margin-right: auto;
 }

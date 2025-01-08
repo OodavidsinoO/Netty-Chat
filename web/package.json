@@ -19,6 +19,7 @@
     "headlessui": "^0.0.0",
     "lucide-react": "^0.309.0",
     "mdast-util-from-markdown": "^2.0.0",
+    "mermaid": "^11.4.1",
     "nanoid": "^5.0.4",
     "next": "14.2.12",
     "react": "^18",
