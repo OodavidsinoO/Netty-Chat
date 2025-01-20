@@ -6,3 +6,4 @@ leptonai
 openai
 duckduckgo-search
 langchain-community
+langchain-chroma
