@@ -1,0 +1,11 @@
+services:
+  nettychat:
+    build: .
+    # ports:
+    #   - "80:80"
+
+  cloudflare:
+    image: cloudflare/cloudflared
+    command: tunnel --url http://nettychat:80
+    depends_on:
+      - nettychat
