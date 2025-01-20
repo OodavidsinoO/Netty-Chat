@@ -37,7 +37,7 @@ def get_rag_context(query: str):
     context = [{
         'name': f"Page {doc.metadata['page'] + 1}, {os.path.basename(doc.metadata['file_path'])}",
         'snippet': doc.page_content,
-        'url': 'http://localhost:8000' + re.sub(r'\.\.', '', re.sub(r"\\?\\", "/", doc.metadata['file_path']))
+        'url': re.sub(r'\.\.', '', re.sub(r"\\?\\", "/", doc.metadata['file_path'])) + f"#page={doc.metadata['page'] + 1}"
     } for doc in retrieved_docs]
     
     # Notice: Links to the actual files are not working in the current implementation
