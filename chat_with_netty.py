@@ -30,6 +30,8 @@ from langchain_community.tools import DuckDuckGoSearchResults
 
 # ======== Prompt Texts ========
 import nettyPrompts
+from arag.arag import get_rag_context
+from arag.route import questionRouting
 
 ################################################################################
 # Constant values for the RAG model.
@@ -83,12 +85,11 @@ def search_with_duckduckgo(query: str):
         })
     return contexts
 
-def search_with_adaptiveRAG(query: str, remote_url: str):
+def search_with_adaptiveRAG(query: str):
     """
-    Search with the adaptive RAG model. (TODO: Implement this function)
+    Search with the adaptive RAG model.
     """
-    response = requests.post(remote_url, json = {"query": query})
-    return response.text
+    return get_rag_context(query)
 
 # ======== Photon Class ========
 
@@ -361,20 +362,24 @@ class RAG(Photon):
             raise HTTPException(status_code=400, detail="search_uuid must be provided.")
 
         # ======== Search Engine Query ========
-        if self.backend == "LEPTON":
-            # delegate to the lepton search api.
-            result = self.leptonsearch_client.query(
-                query=query,
-                search_uuid=search_uuid,
-                generate_related_questions=generate_related_questions,
-            )
-            return StreamingResponse(content=result, media_type="text/html")
+        contexts = []
+        if questionRouting(query) == "vectorstore":
+            contexts = search_with_adaptiveRAG(query)
+        else:
+            if self.backend == "LEPTON":
+                # delegate to the lepton search api.
+                result = self.leptonsearch_client.query(
+                    query=query,
+                    search_uuid=search_uuid,
+                    generate_related_questions=generate_related_questions,
+                )
+                return StreamingResponse(content=result, media_type="text/html")
 
-        # First, do a search query.
-        query = query or nettyPrompts._default_query
-        # Basic attack protection: remove "[INST]" or "[/INST]" from the query
-        query = re.sub(r"\[/?INST\]", "", query)
-        contexts = self.search_function(query)
+            # First, do a search query.
+            query = query or nettyPrompts._default_query
+            # Basic attack protection: remove "[INST]" or "[/INST]" from the query
+            query = re.sub(r"\[/?INST\]", "", query)
+            contexts = self.search_function(query)
         # DEBUG: print the contexts.
         logger.debug(f"Contexts: \n{json.dumps(contexts, sort_keys = True, indent = 4)}")
 
@@ -418,10 +423,6 @@ class RAG(Photon):
     @Photon.handler(mount=True)
     def ui(self):
         return StaticFiles(directory="ui")
-    
-    @Photon.handler(mount=True)
-    def localData(self):
-        return StaticFiles(directory="localData")
 
     @Photon.handler(method="GET", path="/")
     def index(self) -> RedirectResponse:

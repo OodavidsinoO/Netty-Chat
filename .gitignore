@@ -201,3 +201,8 @@ next-env.d.ts
 
 pnpm-lock.yaml
 netty-chat.kv.*
+
+# Netty-RAG items
+arag/chromaVectorStore/*
+arag/localData/*
+arag/modelCache/*
