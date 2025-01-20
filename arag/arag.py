@@ -1,18 +1,25 @@
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 import re, os
+import torch
 
 from dotenv import load_dotenv
 load_dotenv(override = True) 
 
 PATH_MODEL_CACHE = "./arag/modelCache"
 PATH_VECTOR_DB = "./arag/chromaVectorStore"
-
 EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
+GPU_available = torch.cuda.is_available()
+
+# Check if GPU is available
+if GPU_available:
+    print("[INFO] GPU is available")
+else:
+    print("[INFO] GPU is not available. Using CPU instead")
 
 embeddingModel = HuggingFaceEmbeddings(
     model_name = EMBEDDING_MODEL,
-    model_kwargs = { "device": "cuda", "trust_remote_code": True },
+    model_kwargs = { "device": "cuda" if GPU_available else "cpu", "trust_remote_code": True },
     encode_kwargs = { "normalize_embeddings": True },
     cache_folder = PATH_MODEL_CACHE,
 )
