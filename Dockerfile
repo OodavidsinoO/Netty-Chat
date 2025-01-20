@@ -37,6 +37,7 @@ WORKDIR /app
 
 # Copy local code to the /app folder
 COPY requirements.txt .
+COPY localData .
 COPY .env .
 COPY *.py .
 
