@@ -418,6 +418,10 @@ class RAG(Photon):
     @Photon.handler(mount=True)
     def ui(self):
         return StaticFiles(directory="ui")
+    
+    @Photon.handler(mount=True)
+    def localData(self):
+        return StaticFiles(directory="localData")
 
     @Photon.handler(method="GET", path="/")
     def index(self) -> RedirectResponse:
