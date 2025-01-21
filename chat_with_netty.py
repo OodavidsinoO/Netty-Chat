@@ -363,23 +363,28 @@ class RAG(Photon):
 
         # ======== Search Engine Query ========
         contexts = []
-        if questionRouting(query) == "vectorstore":
-            contexts = search_with_adaptiveRAG(query)
-        else:
-            if self.backend == "LEPTON":
-                # delegate to the lepton search api.
-                result = self.leptonsearch_client.query(
-                    query=query,
-                    search_uuid=search_uuid,
-                    generate_related_questions=generate_related_questions,
-                )
-                return StreamingResponse(content=result, media_type="text/html")
+        # if questionRouting(query) == "vectorstore":
+        contexts = search_with_adaptiveRAG(query)
+        logger.info(f"Got {len(contexts)} contexts from the ARAG.")
+        search_number = REFERENCE_COUNT - len(contexts)
+        # else:
+        if self.backend == "LEPTON":
+            # delegate to the lepton search api.
+            result = self.leptonsearch_client.query(
+                query=query,
+                search_uuid=search_uuid,
+                generate_related_questions=generate_related_questions,
+            )
+            return StreamingResponse(content=result, media_type="text/html")
 
-            # First, do a search query.
-            query = query or nettyPrompts._default_query
-            # Basic attack protection: remove "[INST]" or "[/INST]" from the query
-            query = re.sub(r"\[/?INST\]", "", query)
-            contexts = self.search_function(query)
+        # First, do a search query.
+        query = query or nettyPrompts._default_query
+        # Basic attack protection: remove "[INST]" or "[/INST]" from the query
+        query = re.sub(r"\[/?INST\]", "", query)
+        searched_array = self.search_function(query)
+        for i in range(search_number):
+            contexts.append(searched_array[i])
+            
         # DEBUG: print the contexts.
         logger.debug(f"Contexts: \n{json.dumps(contexts, sort_keys = True, indent = 4)}")
 

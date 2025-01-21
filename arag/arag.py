@@ -9,6 +9,11 @@ load_dotenv(override = True)
 PATH_MODEL_CACHE = "./arag/modelCache"
 PATH_VECTOR_DB = "./arag/chromaVectorStore"
 EMBEDDING_MODEL = "sentence-transformers/all-mpnet-base-v2"
+
+MAGIC_NUMBER = 0.75
+# Cosine distance threshold, if content below this threshold,
+# it is considered as similar and therefore used as context
+
 GPU_available = torch.cuda.is_available()
 
 # Check if GPU is available
@@ -32,19 +37,13 @@ chromaVectorStore = Chroma(
 chromaVectorStoreRetriever = chromaVectorStore.as_retriever()
 
 def get_rag_context(query: str):
-    retrieved_docs = chromaVectorStoreRetriever.invoke(query, k=3)
+    retrieved_docs = chromaVectorStore.similarity_search_with_score(query)
 
     context = [{
-        'name': f"Page {doc.metadata['page'] + 1}, {os.path.basename(doc.metadata['file_path'])}",
-        'snippet': doc.page_content,
-        'url': re.sub(r'\.\.', '', re.sub(r"\\?\\", "/", doc.metadata['file_path'])) + f"#page={doc.metadata['page'] + 1}"
-    } for doc in retrieved_docs]
-    
-    # Notice: Links to the actual files are not working in the current implementation
-    # This is because the file paths are not accessible from the current environment
-    # The links are generated based on the file paths in the original environment
-    
-    # TODO: Setup the file server for the actual files to be accessible
+        'name': f"Page {doc[0].metadata['page'] + 1}, {os.path.basename(doc[0].metadata['file_path'])}",
+        'snippet': doc[0].page_content,
+        'url': re.sub(r'\.\.', '', re.sub(r"\\?\\", "/", doc[0].metadata['file_path'])) + f"#page={doc[0].metadata['page'] + 1}"
+    } for doc in retrieved_docs if doc[-1] < MAGIC_NUMBER]
     
     unique_context = {entry['snippet']: entry for entry in context}.values()
     unique_context_list = list(unique_context)
