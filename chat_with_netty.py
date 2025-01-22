@@ -192,6 +192,11 @@ class RAG(Photon):
             self.search_function = lambda query: search_with_duckduckgo(
                 query,
             )
+        elif self.backend == "VECTORSTORE":
+            logger.info("Using vectorstore search API.")
+            self.search_function = lambda query: search_with_adaptiveRAG(
+                query,
+            )
         else:
             raise RuntimeError(f"Unknown backend. Please check the environment variable. self.backend: {self.backend}")
         # Set the LLM model to use.
