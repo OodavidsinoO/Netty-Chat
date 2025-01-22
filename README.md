@@ -46,7 +46,7 @@ cat .env | %{ $_ -replace "^(.*)=(.*)$", "Set-Item Env:$($matches[1]) $matches[2
 ```.env
 BACKEND=DUCKDUCKGO
 LLM_USE_CUSTOM_SERVER=True
-LLM_REMOTE_URL=free.v36.cm
+LLM_REMOTE_URL=https://free.v36.cm/v1/
 LLM_REMOTE_MODEL=gpt-4o-mini
 LLM_REMOTE_API_KEY=[YOUR_API_KEY]
 LEPTON_WORKSPACE_ID=[YOUR_LEPTON]
