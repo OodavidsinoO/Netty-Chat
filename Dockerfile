@@ -1,6 +1,6 @@
 # ============ Compile Nextjs App ============
 # Build nextjs app and copy to alpine image
-FROM node:23 as build
+FROM node:23 AS build
 
 # Set the working directory
 WORKDIR /app
@@ -28,10 +28,11 @@ WORKDIR /app
 
 # Copy local code to the /app folder
 COPY requirements.txt .
-COPY arag .
-COPY localData .
+COPY arag/ ./arag/
+COPY localData/ ./localData/
 COPY .env .
-COPY *.py .
+COPY chat_with_netty.py .
+COPY nettyPrompts.py .
 
 # Copy the build files from the build image
 COPY --from=build ../ui ./ui
