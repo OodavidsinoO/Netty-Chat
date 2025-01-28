@@ -11,6 +11,9 @@ import { FC } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import Mermaid from "./mermaid";
@@ -30,8 +33,8 @@ export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
         markdown ? (
           <div className="prose prose-sm max-w-full">
             <Markdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeRaw]}
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeRaw, rehypeKatex]}
               components={{
                 a: ({ node: _, ...props }) => {
                   if (!props.href) return <></>;
@@ -118,7 +121,17 @@ export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
                 },
               }}
             >
-              {markdown}
+              {
+                markdown
+                  .replace(/\\\\\[/g, "$$$$") // Replace '\\[' with '$$'
+                  .replace(/\\\\\]/g, "$$$$") // Replace '\\]' with '$$'
+                  .replace(/\\\\\(/g, "$$$$") // Replace '\\(' with '$$'
+                  .replace(/\\\\\)/g, "$$$$") // Replace '\\)' with '$$'
+                  .replace(/\\\[/g, "$$$$") // Replace '\[' with '$$'
+                  .replace(/\\\]/g, "$$$$") // Replace '\]' with '$$'
+                  .replace(/\\\(/g, "$$$$") // Replace '\(' with '$$'
+                  .replace(/\\\)/g, "$$$$") // Replace '\)' with '$$';
+              }
             </Markdown>
           </div>
         ) : (
