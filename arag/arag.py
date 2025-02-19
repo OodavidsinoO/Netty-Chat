@@ -38,11 +38,11 @@ chromaVectorStoreRetriever = chromaVectorStore.as_retriever()
 
 def get_rag_context(query: str):
     retrieved_docs = chromaVectorStore.similarity_search_with_score(query)
-
+    
     context = [{
-        'name': f"Page {doc[0].metadata['page'] + 1}, {os.path.basename(doc[0].metadata['file_path'])}",
+        'name': f"Page {doc[0].metadata['page'] + 1}, {os.path.basename(doc[0].metadata['file_path'])}" if 'page' in doc[0].metadata else f"{os.path.basename(doc[0].metadata['source'])}",
         'snippet': doc[0].page_content,
-        'url': re.sub(r'\.\.', '', re.sub(r"\\?\\", "/", doc[0].metadata['file_path'])) + f"#page={doc[0].metadata['page'] + 1}"
+        'url': re.sub(r'\.\.', '', re.sub(r"\\?\\", "/", doc[0].metadata['file_path'] if 'page' in doc[0].metadata else doc[0].metadata['source'])) + (f"#page={doc[0].metadata['page'] + 1}" if 'page' in doc[0].metadata else "")
     } for doc in retrieved_docs if doc[-1] < MAGIC_NUMBER]
     
     unique_context = {entry['snippet']: entry for entry in context}.values()
