@@ -387,8 +387,11 @@ class RAG(Photon):
         # Basic attack protection: remove "[INST]" or "[/INST]" from the query
         query = re.sub(r"\[/?INST\]", "", query)
         searched_array = self.search_function(query)
-        for i in range(search_number):
-            contexts.append(searched_array[i])
+        appended = 0
+        for i in searched_array:
+            if appended < search_number:
+                appended += 1
+                contexts.append(i)
             
         # DEBUG: print the contexts.
         logger.debug(f"Contexts: \n{json.dumps(contexts, sort_keys = True, indent = 4)}")
