@@ -43,6 +43,7 @@ logger.info(f"Loaded .env file successfully.")
 # Specify the number of references from the search engine you want to use.
 # 8 is usually a good number.
 REFERENCE_COUNT = 8
+PROD_MODE = False
 
 # A set of stop words to use - this is not a complete set, and you may want to
 # add more given your observation.
@@ -139,7 +140,7 @@ class RAG(Photon):
     # concurrent.
     handler_max_concurrency = 16
 
-    def local_client(self):
+    def local_client(self, force_openai=False):
         """
         Gets a thread-local client, so in case openai clients are not thread safe,
         each thread will have its own client.
@@ -162,12 +163,21 @@ class RAG(Photon):
                     timeout=httpx.Timeout(connect=10, read=120, write=120, pool=10),
                 )
             else:
-                logger.info(f"Using custom LLM model. Remote URL: {os.environ['LLM_REMOTE_URL']}")
-                thread_local.client = openai.OpenAI(
-                    base_url=os.environ["LLM_REMOTE_URL"],
-                    api_key=os.environ.get("LLM_REMOTE_API_KEY"),
-                    timeout=httpx.Timeout(connect=10, read=120, write=120, pool=10),
-                )
+                # Check if needed to force openai custom server.
+                if force_openai:
+                    logger.info(f"[FORCE OPENAI SERVER] Using custom LLM model. Remote URL: {os.environ['LLM_REMOTE_URL']}")
+                    thread_local.client = openai.OpenAI(
+                        base_url=os.environ["LLM_REMOTE_OPENAI_URL"],
+                        api_key=os.environ.get("LLM_REMOTE_OPENAI_API_KEY"),
+                        timeout=httpx.Timeout(connect=10, read=120, write=120, pool=10),
+                    )
+                else:
+                    logger.info(f"Using custom LLM model. Remote URL: {os.environ['LLM_REMOTE_URL']}")
+                    thread_local.client = openai.OpenAI(
+                        base_url=os.environ["LLM_REMOTE_URL"],
+                        api_key=os.environ.get("LLM_REMOTE_API_KEY"),
+                        timeout=httpx.Timeout(connect=10, read=120, write=120, pool=10),
+                    )
 
             return thread_local.client
 
@@ -238,8 +248,9 @@ class RAG(Photon):
             pass
 
         try:
-            response = self.local_client().chat.completions.create(
-                model=self.model,
+            response = self.local_client(force_openai=True).chat.completions.create(
+                # Use self.model if it doesn't include deepseek (DeepSeek does not support tool calls)
+                model=self.model if "deepseek" not in self.model.lower() else "gpt-4o-mini",
                 messages=[
                     {
                         "role": "system",
@@ -259,6 +270,8 @@ class RAG(Photon):
                 max_tokens=512,
             )
             related = response.choices[0].message.tool_calls[0].function.arguments
+            # Chain-of-Thought Patching: Remove <think> and </think> tags with everything in between.
+            # related = re.sub(r"<think>.*?</think>", "", related)
             if isinstance(related, str):
                 related = json.loads(related)
             logger.trace(f"Related questions: {related}")
@@ -266,6 +279,7 @@ class RAG(Photon):
         except TypeError as e:
             # No related questions found.
             logger.info(f"No related questions found: {e}")
+            logger.info(f"Related Questions Response: {response}")
             return []
         except Exception as e:
             # For any exceptions, we will just return an empty list.
@@ -451,4 +465,5 @@ class RAG(Photon):
 
 if __name__ == "__main__":
     rag = RAG()
-    rag.launch(host = "0.0.0.0", port = 80)
+    port = 8080 if not PROD_MODE else 80
+    rag.launch(host = "0.0.0.0", port = port)

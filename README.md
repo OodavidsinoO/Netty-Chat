@@ -27,7 +27,7 @@ cd web && npm install && npm run build
 cd ..
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -U -r requirements.txt --no-cache-dir
 ```
 5. Run the server
 ```shell
@@ -46,13 +46,20 @@ cat .env | %{ $_ -replace "^(.*)=(.*)$", "Set-Item Env:$($matches[1]) $matches[2
 ```.env
 BACKEND=DUCKDUCKGO
 LLM_USE_CUSTOM_SERVER=True
-LLM_REMOTE_URL=https://free.v36.cm/v1/
-LLM_REMOTE_MODEL=gpt-4o-mini
-LLM_REMOTE_API_KEY=[YOUR_API_KEY]
+# === ChatGPT ===
+LLM_REMOTE_OPENAI_URL=https://free.v36.cm/v1/
+LLM_REMOTE_OPENAI_MODEL=gpt-4o-mini
+LLM_REMOTE_OPENAI_API_KEY=[YOUR_API_KEY]
+# === DeepSeek R1 (Shared; 15 Reqs/Min/IP) ===
+LLM_REMOTE_URL=https://ai.bestip.one/v1/ # https://ai.bestip.one (Global); https://api.bestai.cfd (Asia)
+LLM_REMOTE_MODEL=deepseek-r1 # deepseek-r1-search
+LLM_REMOTE_API_KEY=sk-LWaFHAG2PGwWZeBHmn0RkrTlsjZ9m78f2DuYWkxqWZkeZuY4
+# === Lepton ===
 LEPTON_WORKSPACE_ID=[YOUR_LEPTON]
 LEPTON_WORKSPACE_TOKEN=[YOUR_LEPTON]
 LEPTON_LLM_MODEL=mixtral-8x7b
 LEPTON_ENABLE_AUTH_BY_COOKIE=True
+# === Netty Chat ===
 RELATED_QUESTIONS=True
 KV_NAME=netty-chat.kv
 
