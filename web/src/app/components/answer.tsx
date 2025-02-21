@@ -121,17 +121,21 @@ export const Answer: FC<{ markdown: string; sources: Source[] }> = ({
                 },
               }}
             >
-              {
-                markdown
-                  .replace(/\\\\\[/g, "$$$$") // Replace '\\[' with '$$'
-                  .replace(/\\\\\]/g, "$$$$") // Replace '\\]' with '$$'
-                  .replace(/\\\\\(/g, "$$$$") // Replace '\\(' with '$$'
-                  .replace(/\\\\\)/g, "$$$$") // Replace '\\)' with '$$'
-                  .replace(/\\\[/g, "$$$$") // Replace '\[' with '$$'
-                  .replace(/\\\]/g, "$$$$") // Replace '\]' with '$$'
-                  .replace(/\\\(/g, "$$$$") // Replace '\(' with '$$'
-                  .replace(/\\\)/g, "$$$$") // Replace '\)' with '$$';
-              }
+              {markdown
+                .replace(/\\\\\[/g, "$$$$") // Replace '\\[' with '$$'
+                .replace(/\\\\\]/g, "$$$$") // Replace '\\]' with '$$'
+                .replace(/\\\\\(/g, "$$$$") // Replace '\\(' with '$$'
+                .replace(/\\\\\)/g, "$$$$") // Replace '\\)' with '$$'
+                .replace(/\\\[/g, "$$$$") // Replace '\[' with '$$'
+                .replace(/\\\]/g, "$$$$") // Replace '\]' with '$$'
+                .replace(/\\\(/g, "$$$$") // Replace '\(' with '$$'
+                .replace(/\\\)/g, "$$$$") // Replace '\)' with '$$'
+                // === Chain-of-Thought ===
+                .replace(
+                  /<think>/g,
+                  "<details><summary>=== Chain of Thought ===</summary>",
+                )
+                .replace(/<\/think>/g, "</details>")}
             </Markdown>
           </div>
         ) : (
