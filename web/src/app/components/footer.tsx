@@ -12,7 +12,7 @@ export const Footer: FC = () => {
         LLM, Vector DB, and core components are powered by Netty.
       </div>
       <div className="flex gap-2 justify-center">
-        <div>
+        {/* <div>
           <a
             className="text-blue-500 font-medium inline-flex gap-1 items-center flex-nowrap text-nowrap"
             href="mailto:zilim%ust.hk"
@@ -20,8 +20,8 @@ export const Footer: FC = () => {
             <Mails size={8} />
             Contact Us
           </a>
-        </div>
-        <div>for inquiries or collaborations on AI-driven solutions!</div>
+        </div> */}
+        <div>Built with the support from DeepSeek-R1 ❤️</div>
       </div>
 
       <div className="flex items-center justify-center flex-wrap gap-x-4 gap-y-2 mt-2 text-zinc-400">

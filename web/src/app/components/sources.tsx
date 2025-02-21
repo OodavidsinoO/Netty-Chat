@@ -21,7 +21,13 @@ const SourceItem: FC<{ source: Source; index: number }> = ({
     >
       <a href={url} target="_blank" className="absolute inset-0"></a>
       <div className="font-medium text-zinc-950 text-ellipsis overflow-hidden whitespace-nowrap break-words">
-        {name}
+        {
+          // If name includes ", ..\localData" remove "..\localData\**\" from name else return name
+          // Example "Page 58, ..\localData\Textbooks\Home Networking For Dummies By Kathy Ivens.pdf" => "Page 58, Home Networking For Dummies By Kathy Ivens.pdf"
+          name.includes(", ..\\localData")
+            ? name.replace(/,.*\\localData\\.*\\/, ", ")
+            : name
+        }
       </div>
       <div className="flex gap-2 items-center">
         <div className="flex-1 overflow-hidden">
