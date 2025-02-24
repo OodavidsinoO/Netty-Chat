@@ -165,7 +165,7 @@ class RAG(Photon):
             else:
                 # Check if needed to force openai custom server.
                 if force_openai:
-                    logger.info(f"[FORCE OPENAI SERVER] Using custom LLM model. Remote URL: {os.environ['LLM_REMOTE_URL']}")
+                    logger.info(f"[FORCE OPENAI SERVER] Using custom LLM model. Remote URL: {os.environ['LLM_REMOTE_OPENAI_URL']}")
                     thread_local.client = openai.OpenAI(
                         base_url=os.environ["LLM_REMOTE_OPENAI_URL"],
                         api_key=os.environ.get("LLM_REMOTE_OPENAI_API_KEY"),
@@ -415,10 +415,11 @@ class RAG(Photon):
                 [f"[[citation:{i+1}]] {c['snippet']}" for i, c in enumerate(contexts)]
             )
         )
+        force_gpt = True # Force GPT-4o-mini model
         try:
-            client = self.local_client()
+            client = self.local_client(force_openai=force_gpt)
             llm_response = client.chat.completions.create(
-                model=self.model,
+                model=self.model if not force_gpt else "gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": query},
@@ -439,7 +440,47 @@ class RAG(Photon):
         except Exception as e:
             logger.error(f"encountered error: {e}\n{traceback.format_exc()}")
             return HTMLResponse("Internal server error.", 503)
+        
+        if not force_gpt:
+            try:
+                # Collect the complete streamed answer into a list.
+                complete_generation = list(self._raw_stream_response(
+                    contexts, llm_response, related_questions_future
+                ))
+                logger.info("Collected complete generation output.")
 
+                # Combine the list into a single string to pass to the diagram-generation LLM.
+                complete_answer_text = "".join(complete_generation)
+                
+                logger.debug(f"Complete answer text: {complete_answer_text}")
+                
+                graph_response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "Draw a diagram (e.g., a flowchart or mindmap) based on the generated answer. "
+                                "The diagram should be written in Mermaid syntax and enclosed in a markdown code block. "
+                                "If the answer is not suitable for diagramming, you may output nothing."
+                            )
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Here is the generated answer:\n\n{complete_answer_text}\n\nQuery: {query}",
+                        },
+                    ],
+                    max_tokens=1024,
+                    stop=stop_words,
+                    stream=False,
+                    temperature=0.9,
+                )
+                
+                llm_response = [complete_generation, graph_response]
+            except Exception as e:
+                logger.error(f"encountered error: {e}\n{traceback.format_exc()}")
+                return HTMLResponse("Internal server error.", 503)
+            
         return StreamingResponse(
             self.stream_and_upload_to_kv(
                 contexts, llm_response, related_questions_future, search_uuid
