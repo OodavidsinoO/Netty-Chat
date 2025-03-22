@@ -397,15 +397,18 @@ class RAG(Photon):
             return StreamingResponse(content=result, media_type="text/html")
 
         # First, do a search query.
-        query = query or nettyPrompts._default_query
-        # Basic attack protection: remove "[INST]" or "[/INST]" from the query
-        query = re.sub(r"\[/?INST\]", "", query)
-        searched_array = self.search_function(query)
-        appended = 0
-        for i in searched_array:
-            if appended < search_number:
-                appended += 1
-                contexts.append(i)
+        try:
+            query = query or nettyPrompts._default_query
+            # Basic attack protection: remove "[INST]" or "[/INST]" from the query
+            query = re.sub(r"\[/?INST\]", "", query)
+            searched_array = self.search_function(query)
+            appended = 0
+            for i in searched_array:
+                if appended < search_number:
+                    appended += 1
+                    contexts.append(i)
+        except Exception as e:
+            logger.error(f"encountered error: {e}\n{traceback.format_exc()}")
             
         # DEBUG: print the contexts.
         logger.debug(f"Contexts: \n{json.dumps(contexts, sort_keys = True, indent = 4)}")
